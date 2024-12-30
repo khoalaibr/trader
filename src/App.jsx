@@ -4,6 +4,7 @@ import AnalysisTradesPage from './pages/AnalysisTradesPage';
 import CompareStrategiesPage from './pages/CompareStrategiesPage';
 import CompareSymbolsPage from './pages/CompareSymbolsPage';
 import CompareResultsPage from './pages/CompareResultsPage';
+import HomePage from './pages/HomePage';
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
 
       <div className="container my-4">
         <Routes>
-          <Route path="/" element={<h1>Home</h1>} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/analysis/trades" element={<AnalysisTradesPage />} />
           <Route path="/analysis/compare-strategies" element={<CompareStrategiesPage />} />
           <Route path="/analysis/compare-symbols" element={<CompareSymbolsPage />} />
