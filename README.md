@@ -135,6 +135,9 @@ npm install xlsx file-saver
 
 npm install react-csv
 
+npm install papaparse
+
+
 
 ............
 
@@ -1534,3 +1537,1170 @@ export default CompareSymbolsPage;
 '''
 
 Podrias hacer las modificaciones debidas y pasarme nuevamente los archivos modificados, completos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+La aplicacion esta funcionando de maravilla. Pero ahora necesito que me crees otra pagina. 
+Va a ser una pagina de comparativos de resultados.
+Mi idea es pasarte 4 archivos csv.
+Todos con el siguiente contenido:
+Symbol, Total Trades, Avg ProfitLoss, Winners, Losers, Win Rate
+La idea es que generes un reporte de la siguiente manera:
+Para cada simbolo, colocarás los Avg ProfitLoss y los WinRate de cada uno  y los listarás.
+Sumaras además el Avg ProfitLoss promedio final y el Win Rate final (de los 4 archivos).
+Listaras de mayor Avg profitLoss a menor y me generaras una lista, además, en JSON, unicamente con las acciones que lograron un Avg ProfitLoss mayor a 2% y un Win Rate maor a 50%.
+La pagina que debes crear se debe parecer bastante a la que tengo hoy de analisis *en estilos y conteniendo los botones para exportar los archivos en pdf, csv y excel)
+Te paso como ejemplo:
+'''
+// src/pages/CompareStrategiesPage.jsx
+import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { compareStrategies } from '../store/features/analysisSlice';
+
+import { CSVLink } from 'react-csv';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+function CompareStrategiesPage() {
+  const dispatch = useDispatch();
+  const { compareStrategiesData, loading, error } = useSelector((state) => state.analysis);
+
+  // Filtros (todos opcionales)
+  const [symbol, setSymbol] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    dispatch(
+      compareStrategies({
+        symbol: symbol || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
+        takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
+      })
+    );
+  };
+
+  // ========================
+  // Preparar data para exportar
+  // ========================
+
+  // 1) CSV
+  const csvHeaders = [
+    { label: 'Strategy', key: 'strategy' },
+    { label: 'TotalTrades', key: 'totalTrades' },
+    { label: 'AvgProfitLoss', key: 'avgProfitLoss' },
+    { label: 'Winners', key: 'winners' },
+    { label: 'Losers', key: 'losers' },
+    { label: 'WinRate', key: 'winRate' },
+  ];
+
+  const csvData = compareStrategiesData?.results?.map((res) => ({
+    strategy: res.strategy,
+    totalTrades: res.totalTrades,
+    avgProfitLoss: res.avgProfitLoss,
+    winners: res.winners,
+    losers: res.losers,
+    winRate: res.winRate,
+  })) || [];
+
+  // 2) Excel
+  const exportToExcel = () => {
+    const data = compareStrategiesData?.results?.map((res) => ({
+      strategy: res.strategy,
+      totalTrades: res.totalTrades,
+      avgProfitLoss: res.avgProfitLoss,
+      winners: res.winners,
+      losers: res.losers,
+      winRate: res.winRate,
+    })) || [];
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'CompareStrategies');
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, `compare_strategies_${new Date().toISOString()}.xlsx`);
+  };
+
+  // 3) PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ['Strategy', 'TotalTrades', 'AvgProfitLoss', 'Winners', 'Losers', 'WinRate'];
+    const tableRows = [];
+
+    compareStrategiesData?.results?.forEach((res) => {
+      const row = [
+        res.strategy,
+        res.totalTrades,
+        res.avgProfitLoss,
+        res.winners,
+        res.losers,
+        `${res.winRate}%`,
+      ];
+      tableRows.push(row);
+    });
+
+    doc.text('Reporte Comparar Estrategias', 14, 20);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+    });
+    doc.save(`compare_strategies_${new Date().toISOString()}.pdf`);
+  };
+
+  return (
+    <div>
+      <h2>Comparar Estrategias</h2>
+      <p>Este endpoint: <code>GET /analysis/compare-strategies</code></p>
+
+      <form onSubmit={handleSubmit} className="row g-3">
+        <div className="col-md-2">
+          <label>Symbol (opcional)</label>
+          <input
+            className="form-control"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Start Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>End Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Stop Loss (opcional)</label>
+          <input
+            className="form-control"
+            value={stopLoss}
+            onChange={(e) => setStopLoss(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Take Profit (opcional)</label>
+          <input
+            className="form-control"
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(e.target.value)}
+          />
+        </div>
+        <div className="col-12">
+          <button type="submit" className="btn btn-primary">
+            {loading ? 'Consultando...' : 'Comparar Estrategias'}
+          </button>
+        </div>
+      </form>
+
+      {error && <div className="alert alert-danger mt-3">Error: {JSON.stringify(error)}</div>}
+
+      {compareStrategiesData && !loading && (
+        <div className="mt-4">
+          <h4>Resultados para symbol: {compareStrategiesData.symbol}</h4>
+          <table className="table table-striped">
+            <thead>
+              <tr>
+                <th>Strategy</th>
+                <th>Total Trades</th>
+                <th>Avg ProfitLoss</th>
+                <th>Winners</th>
+                <th>Losers</th>
+                <th>Win Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compareStrategiesData.results.map((res, idx) => (
+                <tr key={idx}>
+                  <td>{res.strategy}</td>
+                  <td>{res.totalTrades}</td>
+                  <td>{res.avgProfitLoss}</td>
+                  <td>{res.winners}</td>
+                  <td>{res.losers}</td>
+                  <td>{res.winRate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Botones de descarga */}
+          <div className="mt-3 d-flex gap-2">
+            <CSVLink
+              headers={csvHeaders}
+              data={csvData}
+              filename={`compare_strategies_${new Date().toISOString()}.csv`}
+              className="btn btn-secondary"
+            >
+              Descargar CSV
+            </CSVLink>
+
+            <button onClick={exportToExcel} className="btn btn-success">
+              Descargar Excel
+            </button>
+
+            <button onClick={exportToPDF} className="btn btn-danger">
+              Descargar PDF
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default CompareStrategiesPage;
+
+'''
+
+
+
+
+
+
+
+
+He estado guardando en un json las acciones y estrategias que pretendo correr, diariamente, para ver que debo hacer con ellas: BUY/HOLD/SELL
+'''
+[
+    {
+        "strategy": "EmaCrossover",
+        "stopLoss": 5,
+        "takeProfit": 10,
+        "symbols": [
+            {
+                "symbol": "JSLG3",
+                "avgPL1": 10.543130990415337,
+                "avgPL2": 10.543130990415337,
+                "avgPL3": 11.4116652578191,
+                "avgPL4": 11.4116652578191,
+                "wr1": 100,
+                "wr2": 100,
+                "wr3": 100,
+                "wr4": 100,
+                "avgPLoverall": 10.977398124117219,
+                "wrOverall": 100
+              },
+              (... CONTINUA)
+'''
+Mi idea es que 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Quiero que me crees otra página, que puede ser el Home.
+Voy a colocar 2 imputs para determinar un pediodo de tiempo (desde y hasta).
+Y un boton.
+Se debe ver similar a las paginas que ya hemos estado trabajando (ahora te paso el ejemplo de una, pero deben contener botones para descarga del resultado, en csv, excel y pdf)
+
+Al presionar el boton se debe consultar al endpoint:
+
+GET /backtest/dailySelectSignals
+
+y este endpoint va a retornar algo como lo siguiente:
+
+'''
+[
+  {
+    "strategy": "EmaCrossover",
+    "stopLoss": 5,
+    "takeProfit": 10,
+    "symbols": [
+      {
+        "symbol": "JSLG3",
+        "response": "BUY"
+      }
+    ]
+  },
+  {
+    "strategy": "RSIEmaMacd",
+    "stopLoss": 0,
+    "takeProfit": 0,
+    "symbols": [
+      {
+        "symbol": "PETR4",
+        "response": "BUY"
+      },
+      {
+        "symbol": "VALE3",
+        "response": "SELL"
+      }
+    ]
+  }
+]
+
+'''
+Lo importante es que en pantalla se debe ver,
+Para cada: Estrategia, stop loss y takeProfit (muestra como subtitulos)
+Los symbols con sus respectivas respuestas (BUY o SELL)
+y para cada symbol (representa una acción) un listado de los traders que se dán en el periodo que se ingresa en los input (desde y hasta), 
+Para esto, se debe tomar los datos del siguiente endpoint:
+
+GET /backtest/trades?symbol=MSFT&strategy=Ema50Ema200Macd&startDate=2023-01-01&endDate=2023-12-31&stopLoss=5&takeProfit=10
+
+que retorna algo como:
+
+'''
+{
+  "symbol": "MSFT",
+  "strategy": "Ema50Ema200Macd",
+  "startDate": "2023-01-01",
+  "endDate": "2023-12-31",
+  "stopLoss": 5,
+  "takeProfit": 10,
+  "trades": [
+    {
+      "entryDate": "2023-02-15",
+      "exitDate": "2023-02-20",
+      "profitLoss": 7.5
+    },
+    {
+      "entryDate": "2023-05-10",
+      "exitDate": "2023-05-15",
+      "profitLoss": 12.3
+    },
+    // ... más trades
+  ]
+}
+
+'''
+
+
+'''
+# Pagina de ejemplo, de como se debe ver:
+
+// src/pages/CompareSymbolsPage.jsx
+import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { compareSymbols } from '../store/features/analysisSlice';
+
+import { CSVLink } from 'react-csv';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+function CompareSymbolsPage() {
+  const dispatch = useDispatch();
+  const { compareSymbolsData, loading, error } = useSelector((state) => state.analysis);
+
+  // Filtros (todos opcionales)
+  const [strategy, setStrategy] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    dispatch(
+      compareSymbols({
+        strategy: strategy || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
+        takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
+      })
+    );
+  };
+
+  // ========================
+  // 1) CSV
+  // ========================
+  const csvHeaders = [
+    { label: 'Symbol', key: 'symbol' },
+    { label: 'TotalTrades', key: 'totalTrades' },
+    { label: 'AvgProfitLoss', key: 'avgProfitLoss' },
+    { label: 'Winners', key: 'winners' },
+    { label: 'Losers', key: 'losers' },
+    { label: 'WinRate', key: 'winRate' },
+  ];
+
+  const csvData = compareSymbolsData?.results?.map((res) => ({
+    symbol: res.symbol,
+    totalTrades: res.totalTrades,
+    avgProfitLoss: res.avgProfitLoss,
+    winners: res.winners,
+    losers: res.losers,
+    winRate: res.winRate,
+  })) || [];
+
+  // ========================
+  // 2) Excel
+  // ========================
+  const exportToExcel = () => {
+    const data = compareSymbolsData?.results?.map((res) => ({
+      symbol: res.symbol,
+      totalTrades: res.totalTrades,
+      avgProfitLoss: res.avgProfitLoss,
+      winners: res.winners,
+      losers: res.losers,
+      winRate: res.winRate,
+    })) || [];
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'CompareSymbols');
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, `compare_symbols_${new Date().toISOString()}.xlsx`);
+  };
+
+  // ========================
+  // 3) PDF
+  // ========================
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ['Symbol', 'TotalTrades', 'AvgProfitLoss', 'Winners', 'Losers', 'WinRate'];
+    const tableRows = [];
+
+    compareSymbolsData?.results?.forEach((res) => {
+      const row = [
+        res.symbol,
+        res.totalTrades,
+        res.avgProfitLoss,
+        res.winners,
+        res.losers,
+        `${res.winRate}%`,
+      ];
+      tableRows.push(row);
+    });
+
+    doc.text('Reporte Comparar Symbols', 14, 20);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+    });
+    doc.save(`compare_symbols_${new Date().toISOString()}.pdf`);
+  };
+
+  return (
+    <div>
+      <h2>Comparar Acciones</h2>
+      <p>Este endpoint: <code>GET /analysis/compare-symbols</code></p>
+      <form onSubmit={handleSubmit} className="row g-3">
+        <div className="col-md-2">
+          <label>Strategy (opcional)</label>
+          <input
+            className="form-control"
+            value={strategy}
+            onChange={(e) => setStrategy(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Start Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>End Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Stop Loss (opcional)</label>
+          <input
+            className="form-control"
+            value={stopLoss}
+            onChange={(e) => setStopLoss(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Take Profit (opcional)</label>
+          <input
+            className="form-control"
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(e.target.value)}
+          />
+        </div>
+        <div className="col-12">
+          <button type="submit" className="btn btn-primary">
+            {loading ? 'Consultando...' : 'Comparar Symbols'}
+          </button>
+        </div>
+      </form>
+
+      {error && <div className="alert alert-danger mt-3">Error: {JSON.stringify(error)}</div>}
+
+      {compareSymbolsData && !loading && (
+        <div className="mt-4">
+          <h4>Resultados para strategy: {compareSymbolsData.strategy}</h4>
+          <table className="table table-striped">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Total Trades</th>
+                <th>Avg ProfitLoss</th>
+                <th>Winners</th>
+                <th>Losers</th>
+                <th>Win Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compareSymbolsData.results.map((res, idx) => (
+                <tr key={idx}>
+                  <td>{res.symbol}</td>
+                  <td>{res.totalTrades}</td>
+                  <td>{res.avgProfitLoss}</td>
+                  <td>{res.winners}</td>
+                  <td>{res.losers}</td>
+                  <td>{res.winRate}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Botones de descarga */}
+          <div className="mt-3 d-flex gap-2">
+            <CSVLink
+              headers={csvHeaders}
+              data={csvData}
+              filename={`compare_symbols_${new Date().toISOString()}.csv`}
+              className="btn btn-secondary"
+            >
+              Descargar CSV
+            </CSVLink>
+
+            <button onClick={exportToExcel} className="btn btn-success">
+              Descargar Excel
+            </button>
+
+            <button onClick={exportToPDF} className="btn btn-danger">
+              Descargar PDF
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default CompareSymbolsPage;
+
+
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Voy a continuar con mi app de trader.
+Pretendo crear otra pagina, que contendra un boton que, al presionar, hara un post a la siguiente url:
+https://ml-service-trading-c8ed6e84414d.herokuapp.com/dailyPrediction
+La respuesta sera de la siguiente forma:
+'''
+{
+    "results": [
+  {
+              "symbol": "PFRM3",
+              "date": "2024-12-30 21:06:00",
+              "features": {
+                  "symbol": "PFRM3",
+                  "atr14": 0.7045830544609275,
+                  "boll_hband": 7.1173980849763,
+                  "boll_lband": 5.780601915023699,
+                  "boll_mavg": 6.449,
+                  "rsi_14": 50.64493901698661,
+                  "ema20": 6.419444271592185,
+                  "ema50": 6.456745873832031,
+                  "macd_line": -0.12864813205122516,
+                  "macd_signal": -0.1366545353700976,
+                  "macd_hist": 0.008006403318872451,
+                  "fibSupport": 6.3972,
+                  "fibResistance": 6.3028,
+                  "volumeAboveAverage": 1
+              },
+              "prediction": 1,
+              "prediction_name": "Estable"
+          },
+          {
+              "symbol": "SUZB3",
+              "error": "y contains previously unseen labels: 'SUZB3'"
+          },
+          {
+              "symbol": "SOJA3",
+              "error": "y contains previously unseen labels: 'SOJA3'"
+          },
+          {
+              "symbol": "BBAS3",
+              "date": "2024-12-30 21:07:36",
+              "features": {
+                  "symbol": "BBAS3",
+                  "atr14": 1.9856270259526376,
+                  "boll_hband": 25.309766498151504,
+                  "boll_lband": 23.404233501848502,
+                  "boll_mavg": 24.357000000000003,
+                  "rsi_14": 42.89082263443318,
+                  "ema20": 24.36338594144054,
+                  "ema50": 25.048735122395662,
+                  "macd_line": -0.341870776122839,
+                  "macd_signal": -0.3965525893771198,
+                  "macd_hist": 0.05468181325428079,
+                  "fibSupport": 24.238319999999998,
+                  "fibResistance": 24.18168,
+                  "volumeAboveAverage": 1
+              },
+              "prediction": 2,
+              "prediction_name": "Sube >1%"
+          },
+          ...
+'''
+La idea es que, muestre los resultados si "prediction": 2 o "prediction": 0, en caso de cero mostraria VENDER y en caso de 2 mostraria COMPRAR. En el caso de 1 o de error, simplemente no lo muestra. 
+Me interesa que se muestre solamente: BBAS3 - COMPRAR, por ejemplo. Todo listado de una forma legible y facil de entender. 
+Te voy a pasar un poco los archivos que sonsidero que te puedan servir para dar continuidad al proyecto:
+'''
+// src/store/features/dailyConsultSlice.js
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import api from '../../services/api';
+
+export const fetchLiveSignal = createAsyncThunk(
+  'dailyConsult/fetchLiveSignal',
+  async (filters, { rejectWithValue }) => {
+    try {
+      const { symbol, startDate, endDate, strategy, stopLoss, takeProfit } = filters;
+      const params = {};
+      if (symbol) params.symbol = symbol;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (strategy) params.strategy = strategy;
+      if (stopLoss !== undefined) params.stopLoss = stopLoss;
+      if (takeProfit !== undefined) params.takeProfit = takeProfit;
+
+      const response = await api.get('/backtest/liveSignal', { params });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+const dailyConsultSlice = createSlice({
+  name: 'dailyConsult',
+  initialState: {
+    liveSignalResult: null,
+    isLoading: false,
+    error: null,
+  },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchLiveSignal.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchLiveSignal.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.error = null;
+        state.liveSignalResult = action.payload;
+      })
+      .addCase(fetchLiveSignal.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      });
+  },
+});
+
+export default dailyConsultSlice.reducer;
+
+'''
+'''
+// src/App.jsx
+import { Routes, Route, Link } from 'react-router-dom';
+import AnalysisTradesPage from './pages/AnalysisTradesPage';
+import CompareStrategiesPage from './pages/CompareStrategiesPage';
+import CompareSymbolsPage from './pages/CompareSymbolsPage';
+import CompareResultsPage from './pages/CompareResultsPage';
+import HomePage from './pages/HomePage';
+
+function App() {
+  return (
+    <div>
+      <nav className="navbar navbar-expand navbar-dark bg-dark px-3">
+        <Link className="navbar-brand" to="/">
+          Trader
+        </Link>
+        <div className="navbar-nav">
+          <Link className="nav-link" to="/analysis/trades">Trades</Link>
+          <Link className="nav-link" to="/analysis/compare-strategies">Comparar Estrategias</Link>
+          <Link className="nav-link" to="/analysis/compare-symbols">Comparar Acciones</Link>
+          <Link className="nav-link" to="/analysis/compare-results">Comparar Resultados</Link>
+        </div>
+      </nav>
+
+      <div className="container my-4">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/analysis/trades" element={<AnalysisTradesPage />} />
+          <Route path="/analysis/compare-strategies" element={<CompareStrategiesPage />} />
+          <Route path="/analysis/compare-symbols" element={<CompareSymbolsPage />} />
+          <Route path="/analysis/compare-results" element={<CompareResultsPage />} />
+        </Routes>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+'''
+'''
+# La siguiente pagina es un ejemplo de como se vienen desarrollando las paginas. Esta bueno usar como referencia. 
+# Me interesa que contengan botones para exportar a csv, excel y pdf, como se viene haciendo. Ya tengo instaladas las librerias.
+
+// src/pages/AnalysisTradesPage.jsx
+import React, { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchTrades } from '../store/features/analysisSlice';
+
+import { CSVLink } from 'react-csv';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+function AnalysisTradesPage() {
+  const dispatch = useDispatch();
+  const { tradesData, loading, error } = useSelector((state) => state.analysis);
+
+  // Filtros (todos opcionales)
+  const [symbol, setSymbol] = useState('');
+  const [strategy, setStrategy] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    dispatch(
+      fetchTrades({
+        symbol: symbol || undefined,
+        strategy: strategy || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
+        takeProfit: takeProfit ? parseFloat(takeProfit) : undefined,
+      })
+    );
+  };
+
+  // ========================
+  // 1) CSV
+  // ========================
+  const csvHeaders = [
+    { label: 'Symbol', key: 'symbol' },
+    { label: 'ProfitLoss', key: 'profitLoss' },
+    { label: 'EntryDate', key: 'entryDate' },
+    { label: 'ExitDate', key: 'exitDate' },
+  ];
+  const csvData = tradesData?.trades?.map((trade) => ({
+    symbol: trade.backtestRun?.symbol,
+    profitLoss: trade.profitLoss,
+    entryDate: trade.entryDate,
+    exitDate: trade.exitDate,
+  })) || [];
+
+  // ========================
+  // 2) Excel (.xlsx)
+  // ========================
+  const exportToExcel = () => {
+    const data = tradesData?.trades?.map((trade) => ({
+      symbol: trade.backtestRun?.symbol,
+      profitLoss: trade.profitLoss,
+      entryDate: trade.entryDate,
+      exitDate: trade.exitDate,
+    })) || [];
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Trades');
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, `trades_report_${new Date().toISOString()}.xlsx`);
+  };
+
+  // ========================
+  // 3) PDF
+  // ========================
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ['Symbol', 'ProfitLoss', 'Entry Date', 'Exit Date'];
+    const tableRows = [];
+
+    tradesData?.trades?.forEach((trade) => {
+      const row = [
+        trade.backtestRun?.symbol,
+        trade.profitLoss,
+        trade.entryDate,
+        trade.exitDate,
+      ];
+      tableRows.push(row);
+    });
+
+    doc.text('Reporte de Trades', 14, 20);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+    });
+    doc.save(`trades_report_${new Date().toISOString()}.pdf`);
+  };
+
+  return (
+    <div>
+      <h2>Trades</h2>
+      <p>Este endpoint: <code>GET /analysis/trades</code></p>
+
+      <form onSubmit={handleSubmit} className="row g-3">
+        <div className="col-md-2">
+          <label>Symbol (opcional)</label>
+          <input
+            className="form-control"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Strategy (opcional)</label>
+          <input
+            className="form-control"
+            value={strategy}
+            onChange={(e) => setStrategy(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Start Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>End Date (opcional)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Stop Loss (opcional)</label>
+          <input
+            className="form-control"
+            value={stopLoss}
+            onChange={(e) => setStopLoss(e.target.value)}
+          />
+        </div>
+        <div className="col-md-2">
+          <label>Take Profit (opcional)</label>
+          <input
+            className="form-control"
+            value={takeProfit}
+            onChange={(e) => setTakeProfit(e.target.value)}
+          />
+        </div>
+        <div className="col-12">
+          <button type="submit" className="btn btn-primary">
+            {loading ? 'Consultando...' : 'Consultar Trades'}
+          </button>
+        </div>
+      </form>
+
+      {error && <div className="alert alert-danger mt-3">Error: {JSON.stringify(error)}</div>}
+
+      {tradesData && !loading && (
+        <div className="mt-4">
+          <h4>Resumen estadístico</h4>
+          <p>Total trades: {tradesData.totalTrades}</p>
+          <p>Avg Profit/Loss: {tradesData.avgProfitLoss}</p>
+          <p>Winners: {tradesData.winners}</p>
+          <p>Losers: {tradesData.losers}</p>
+          <p>Win Rate: {tradesData.winRate}%</p>
+
+          <h5>Listado de trades</h5>
+          <table className="table table-striped">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>ProfitLoss</th>
+                <th>Entry Date</th>
+                <th>Exit Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tradesData.trades?.map((trade, idx) => (
+                <tr key={idx}>
+                  <td>{trade.backtestRun?.symbol}</td>
+                  <td>{trade.profitLoss}</td>
+                  <td>{trade.entryDate}</td>
+                  <td>{trade.exitDate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* BOTONES DE DESCARGA */}
+          <div className="mt-3 d-flex gap-2">
+            <CSVLink
+              headers={csvHeaders}
+              data={csvData}
+              filename={`trades_report_${new Date().toISOString()}.csv`}
+              className="btn btn-secondary"
+            >
+              Descargar CSV
+            </CSVLink>
+
+            <button onClick={exportToExcel} className="btn btn-success">
+              Descargar Excel
+            </button>
+
+            <button onClick={exportToPDF} className="btn btn-danger">
+              Descargar PDF
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default AnalysisTradesPage;
+
+'''
+
+En .env tengo guardado:
+VITE_API_SERVICE=https://ml-service-trading-c8ed6e84414d.herokuapp.com

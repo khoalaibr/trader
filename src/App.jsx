@@ -4,6 +4,7 @@ import AnalysisTradesPage from './pages/AnalysisTradesPage';
 import CompareStrategiesPage from './pages/CompareStrategiesPage';
 import CompareSymbolsPage from './pages/CompareSymbolsPage';
 import CompareResultsPage from './pages/CompareResultsPage';
+import DailyMlPredictionPage from './pages/DailyMlPredictionPage';
 import HomePage from './pages/HomePage';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
           <Link className="nav-link" to="/analysis/compare-strategies">Comparar Estrategias</Link>
           <Link className="nav-link" to="/analysis/compare-symbols">Comparar Acciones</Link>
           <Link className="nav-link" to="/analysis/compare-results">Comparar Resultados</Link>
+          <Link className="nav-link" to="/analysis/daily-ml-prediction">ML Predicción</Link>
         </div>
       </nav>
 
@@ -28,6 +30,7 @@ function App() {
           <Route path="/analysis/compare-strategies" element={<CompareStrategiesPage />} />
           <Route path="/analysis/compare-symbols" element={<CompareSymbolsPage />} />
           <Route path="/analysis/compare-results" element={<CompareResultsPage />} />
+          <Route path="/analysis/daily-ml-prediction" element={<DailyMlPredictionPage />} />
         </Routes>
       </div>
     </div>
